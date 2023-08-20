@@ -9,6 +9,8 @@ from torch import nn
 from tqdm.auto import tqdm
 from torch.utils.data.dataloader import DataLoader
 
+device = "cuda" if torch.cuda.is_available() else "cpu"
+print(device)
 def showRandomImages():
     random_int = random.randint(0, len(train_array))
     low_image, high_image = train_array[random_int]
@@ -34,7 +36,7 @@ preprocess_image = transforms.Compose([
 ])
 
 high_process_image = transforms.Compose([
-    transforms.Resize(size=(256, 256)),
+    transforms.Resize(size=(768, 768)),
     transforms.ToTensor()
 ])
 
@@ -53,13 +55,13 @@ for index, pic in enumerate(files):
 
 class HighResModel(nn.Module):
     def __init__(self):
-        super(HighResModel, self).__init__()
+        super().__init__()
         self.conv_bock_1 = nn.Conv2d(in_channels=3, out_channels=64, kernel_size=3, stride=1, padding=1)
         self.conv_bock_2 = nn.Conv2d(in_channels=64, out_channels=128, kernel_size=3, stride=1, padding=1)
         self.conv_bock_3 = nn.Conv2d(in_channels=128, out_channels=256, kernel_size=3, stride=1, padding=1)
         self.conv_bock_4 = nn.Conv2d(in_channels=256, out_channels=512, kernel_size=3, stride=1, padding=1)
-        self.conv_bock_5 = nn.Conv2d(in_channels=512, out_channels=3, kernel_size=3, stride=1, padding=1)
-        self.upscale = nn.PixelShuffle(1) #input image size is 256 hence upscalling to 1024
+        self.conv_bock_5 = nn.Conv2d(in_channels=512, out_channels=27, kernel_size=3, stride=1, padding=1)
+        self.upscale = nn.PixelShuffle(3) #input image size is 256 hence upscalling to 1024
 
     def forward(self, x):
         x = self.conv_bock_1(x)
@@ -72,7 +74,7 @@ class HighResModel(nn.Module):
 
 
 batch_data = DataLoader(train_array, batch_size=8)
-model = HighResModel()
+model = HighResModel().to(device)
 
 # Print the model architecture and check its parameters
 print(model)
@@ -80,8 +82,11 @@ print("Number of parameters:", sum(p.numel() for p in model.parameters()))
 
 loss_fn = nn.L1Loss()
 optim_fn = torch.optim.Adam(params=model.parameters(), lr=0.001)
+
 for epoch in tqdm(torch.arange(0, 10)):
     for batch, (input, label) in enumerate(batch_data):
+        input = input.to(device)
+        label = label.to(device)
         model.train()
         pred = model(input)
         loss = loss_fn(pred, label)
@@ -93,9 +98,14 @@ for epoch in tqdm(torch.arange(0, 10)):
             print(f"Loss {loss}")
 
 torch.save(model, 'model.pth')
+torch.save(model.state_dict(), './models.pth')
 model.eval()
 random_int = random.randint(0, len(train_array))
 low_image, high_image = train_array[random_int]
 output = low_image.permute(1,2,0)
 plt.imshow(output)
+plt.show()
+pred = model(low_image)
+output_new = low_image.permute(1,2,0)
+plt.imshow(output_new)
 plt.show()
